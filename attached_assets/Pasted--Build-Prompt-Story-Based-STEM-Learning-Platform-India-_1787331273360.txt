@@ -1,0 +1,97 @@
+# Build Prompt: Story-Based STEM Learning Platform (India) — Prototype
+
+## Context for the builder
+
+Build a prototype web platform, inspired in structure by craftingtable.com, but not a clone. It sells/delivers STEM learning "adventure kits" where each kit is a story-driven course: a fictional narrative broken into sequential "Days," and each Day teaches one real electronics/coding concept tied to a story beat (e.g. "the cabin is dark" → the lesson is building an LED circuit). A story PDF will be attached alongside this prompt (first one: "Prithvi Exodus") — use its structure, tone, and day-by-day beats as the reference content model and seed the first course from it. Treat every subsequent story the same way: ingest the PDF, extract Day-by-day beats, map each to a technical task, and generate course content from it.
+
+**Explicitly do NOT build a heavily gamified UI.** No XP bars, no levels, no points, no leaderboards, no badges-for-badges'-sake. The narrative itself is the motivation layer — the site's job is to present it cleanly and get out of the way. Think: a well-organized story reader crossed with a course platform, not a game dashboard. Simple, explanatory, content-forward. CraftingTable's actual gamification is just: linear day-unlock progression + narrative framing + optional side content — nothing more elaborate than that.
+
+## Tech stack
+
+- Frontend: React (Vite), React Router, Tailwind CSS
+- Backend: Node.js + Express
+- Database: MongoDB (Mongoose)
+- Auth: JWT-based, email/password to start (social login later)
+- Payments: Razorpay (India-first; test mode for prototype)
+- Media: story videos/diagrams can be stubbed with placeholders in the prototype — don't build real video infra yet
+- Deployment target: same pattern as prior projects (Render-style single deploy, GitHub-synced)
+
+## Site structure (pages)
+
+1. **Home (`/`)**
+   - Hero: rotating/static banner introducing the platform, one clear sentence value prop, primary CTA into the first story
+   - "Stories" section: card grid of available adventure kits/courses (cover art, one-line premise, price, "Start Day 1" or "Order kit" CTA)
+   - "How it works" — 3–4 step plain-language explainer (buy or unlock a story → follow daily missions → build real circuits → finish the story), no illustrations required, text + simple icons is fine
+   - Testimonials/social proof section (placeholder content for prototype)
+   - Footer: About, Contact, Terms, Refund Policy, Track Order
+
+2. **Story catalog (`/stories`)**
+   - Grid of all stories/kits, filter by difficulty (Beginner/Intermediate/Advanced) and concept tags (Circuits, Coding, IoT, Sensors)
+
+3. **Story detail / product page (`/stories/:storySlug`)**
+   - Story premise/synopsis (short, in the story's own voice)
+   - Full day list as a collapsed/expandable syllabus (Day 1: title, Day 2: title... — mirrors what CraftingTable shows on their member "Back to my courses" index)
+   - What's included (kit components list), price in INR, "Order kit" / "Enroll" CTA
+   - FAQ block
+
+4. **Day / lesson view (`/stories/:storySlug/day/:dayNumber`)**
+   - This is the core reading+doing unit. Structure per day:
+     - Story text block (narrative beat, dialogue — rendered as-is from the PDF content, preserving bilingual Hindi/English voice where present)
+     - "Your mission" panel — the plain technical task for that day (e.g. "Build a circuit that lights one LED")
+     - Circuit/wiring reference (image placeholder for prototype)
+     - Code editor / task submission area (can be a simple textarea + "Mark day complete" for the prototype — no real compiler needed yet)
+     - Prev/Next day navigation, locked state for days not yet unlocked
+   - Support optional flags per day: `isSideQuest`, `isCreativeDay`, `hasChoice` (Prithvi Exodus has a branching choice on Day 21 — model this as a simple two-option fork that tags the user's save state, no complex branching engine needed for prototype)
+
+5. **Dashboard (`/dashboard`)** (auth required)
+   - Enrolled stories with progress bar (day X of Y, plain text/number, not a gamey meter)
+   - Continue button per story
+   - Order history
+
+6. **Cart / Checkout (`/cart`, `/checkout`)**
+   - Standard cart → address → Razorpay payment → confirmation flow
+
+7. **Auth (`/login`, `/signup`)**
+
+8. **About (`/about`)** — who's behind the platform, the mission in plain language
+
+9. **Contact (`/contact`)** — simple form
+
+10. **Admin (basic, `/admin`)** — for the prototype, just enough to add/edit a story and its days (title, story text, task, unlock order) so new story PDFs can be turned into content without touching code every time
+
+## Data model (MongoDB / Mongoose)
+
+```
+User        { name, email, passwordHash, enrolledStories: [{ storyId, progressDay, choices: {} }] }
+Story       { slug, title, tagline, synopsis, coverImage, priceINR, difficulty, tags[], totalDays }
+Day         { storyId, dayNumber, title, storyText, missionText, wiringImage, isSideQuest, isCreativeDay, choiceOptions: [{label, value}] or null }
+Progress    { userId, storyId, dayId, status: 'locked'|'unlocked'|'completed', submittedWork, completedAt }
+Order       { userId, storyId, amountINR, razorpayOrderId, paymentStatus, shippingAddress }
+```
+
+## Design direction
+
+- Visual tone: clean, editorial, story-forward — not a SaaS dashboard, not an arcade. Think a well-typeset serialized fiction site that happens to teach engineering.
+- Typography does the heavy lifting: a strong display face for story titles/day headers, a calm readable body face for narrative text and instructions. Avoid generic templated defaults (no default cream+terracotta AI-look, no near-black+neon-accent AI-look) — pick a palette and type pairing that feels specific to "stranded on Earth, building your way to Mars," e.g. deep space-adjacent tones balanced with a warm human accent color, used sparingly.
+- Minimal iconography, minimal motion — a subtle reveal when a new day unlocks is enough; no constant animation.
+- Fully responsive, mobile-first (most Indian users will hit this on mobile first).
+- Keep the "day" numbering as the one structural device that repeats throughout (it's real sequence information, unlike decorative 01/02/03 markers) — everything else stays quiet around it.
+
+## India-specific requirements
+
+- Currency: INR throughout, no USD/geo-switcher needed for the prototype
+- Payments: Razorpay test integration
+- Shipping/address fields formatted for Indian addresses (PIN code, state dropdown)
+- Content voice: preserve the Hindi-English (Hinglish) narrative voice from the source story PDFs as-is — don't translate or anglicize it
+
+## What to build first (prototype scope)
+
+1. Home + Story catalog + Story detail pages (static/seeded content, no auth needed to browse)
+2. Day/lesson view with the Prithvi Exodus Day 1–5 content seeded as real data (proves the reading + mission + unlock pattern end to end)
+3. Basic auth + dashboard showing progress through that seeded story
+4. Cart/checkout can be stubbed (UI complete, Razorpay in test mode, doesn't need to be production-hardened)
+5. Leave admin CMS and remaining days as next-phase — get one story's first few days fully working before scaling to more days or more stories
+
+## Content ingestion note
+
+When a new story PDF is attached, extract: story title, premise/prologue, and for each Day — the narrative text, the named technical concept/component, and the concrete task the learner performs. Turn each Day into one `Day` document. Preserve dialogue and tone; do not summarize or flatten the narrative voice when generating the `storyText` field.
